@@ -4,7 +4,7 @@
 
 # FreeRTOS_Beginner
 
-How to use some fundamental features in FreeRTOS via CMSIS
+How to use some fundamental features in FreeRTOS via CMSIS-v2
 
 ## Features
 - Thread and Task
