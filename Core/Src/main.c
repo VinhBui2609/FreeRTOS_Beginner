@@ -57,24 +57,24 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-// ****Example of Creating Tasks with 3 different levels of Priorities****
-void send_normaltask(void)
-{
-	uint8_t data[] = "2.Hello from normaltask\n";
-	HAL_UART_Transmit(&huart2, data, sizeof(data), HAL_MAX_DELAY);
-}
-
-void send_lowtask(void)
-{
-	uint8_t data[] = "3.Hello from lowtask\n";
-	HAL_UART_Transmit(&huart2, data, sizeof(data), HAL_MAX_DELAY);
-}
-
-void send_hightask(void)
-{
-	uint8_t data[] = "1.Hello from hightask\n";
-	HAL_UART_Transmit(&huart2, data, sizeof(data), HAL_MAX_DELAY);
-}
+/* Example of Creating Tasks with 3 different levels of Priorities */
+//void send_normaltask(void)
+//{
+//	uint8_t data[] = "2.Hello from normaltask\n";
+//	HAL_UART_Transmit(&huart2, data, sizeof(data), HAL_MAX_DELAY);
+//}
+//
+//void send_lowtask(void)
+//{
+//	uint8_t data[] = "3.Hello from lowtask\n";
+//	HAL_UART_Transmit(&huart2, data, sizeof(data), HAL_MAX_DELAY);
+//}
+//
+//void send_hightask(void)
+//{
+//	uint8_t data[] = "1.Hello from hightask\n";
+//	HAL_UART_Transmit(&huart2, data, sizeof(data), HAL_MAX_DELAY);
+//}
 /* USER CODE END 0 */
 
 /**

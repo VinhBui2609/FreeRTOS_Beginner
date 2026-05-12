@@ -46,9 +46,16 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
+
+/* Example of Creating Tasks with 3 different levels of Priorities */
 void send_normaltask(void);
 void send_lowtask(void);
 void send_hightask(void);
+
+/* Example of Mutex */
+void UART_print(char* str);
+void UART_print_priority(const char *format, ...);
+
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/
