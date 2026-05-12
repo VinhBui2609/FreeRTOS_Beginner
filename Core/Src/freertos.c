@@ -156,13 +156,18 @@ void StartNormalTask(void const * argument)
 	  HAL_UART_Transmit(&huart2, (uint8_t *)str3, strlen(str3), HAL_MAX_DELAY);
 
 	  HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8);
-	  // Wait unit the button (PA13) is pressed
+	  // Wait unit the button (PA8) is pressed
 	  // Otherwise NormalTaks will not Release Semaphore and other Tasks that requiring Semaphore must be waiting
 
 	  char *str2 = "Leaving NormalTask and Releasing Semaphore\n\n";
 	  HAL_UART_Transmit(&huart2, (uint8_t *)str2, strlen(str2), HAL_MAX_DELAY);
 
 	  osSemaphoreRelease(BinarySemHandle);
+
+	  // ****Example of Mutex****
+
+
+
 	  osDelay(500);
   }
   /* USER CODE END StartNormalTask */
