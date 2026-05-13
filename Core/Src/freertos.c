@@ -113,7 +113,7 @@ void MX_FREERTOS_Init(void) {
 
   /* Create the thread(s) */
   /* definition and creation of NormalTask */
-  osThreadDef(NormalTask, StartNormalTask, osPriorityNormal, 0, 128);
+  osThreadDef(NormalTask, StartNormalTask, osPriorityAboveNormal, 0, 128);
   NormalTaskHandle = osThreadCreate(osThread(NormalTask), NULL);
 
   /* definition and creation of LowTask */
@@ -143,10 +143,10 @@ void StartNormalTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  // ****Example of Creating Tasks with 3 different levels of Priorities****
+	  /* Example of Creating Tasks with 3 different levels of Priorities */
 //	  send_normaltask();
 
-	  // ****Example of Semaphore****
+	  /* Example of Semaphore */
 	  char *str1 = "Entering NormalTask and Waiting for Semaphore\n";
 	  HAL_UART_Transmit(&huart2, (uint8_t *)str1, strlen(str1), HAL_MAX_DELAY);
 
@@ -156,7 +156,7 @@ void StartNormalTask(void const * argument)
 	  HAL_UART_Transmit(&huart2, (uint8_t *)str3, strlen(str3), HAL_MAX_DELAY);
 
 	  HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8);
-	  // Wait unit the button (PA13) is pressed
+	  // Wait unit the button (PA8) is pressed
 	  // Otherwise NormalTaks will not Release Semaphore and other Tasks that requiring Semaphore must be waiting
 
 	  char *str2 = "Leaving NormalTask and Releasing Semaphore\n\n";
@@ -181,10 +181,10 @@ void StartLowTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  // ****Example of Creating Tasks with 3 different levels of Priorities****
+	  /* Example of Creating Tasks with 3 different levels of Priorities */
 //	  send_lowtask();
 
-	  // ****Example of Semaphore****
+	  /* Example of Semaphore */
 	  char *str1 = "Entering LowTask\n";
 	  HAL_UART_Transmit(&huart2, (uint8_t *)str1, strlen(str1), HAL_MAX_DELAY);
 
@@ -208,10 +208,10 @@ void StartHighTask(void const * argument)
   /* Infinite loop */
   for(;;)
   {
-	  // ****Example of Creating Tasks with 3 different levels of Priorities****
+	  /* Example of Creating Tasks with 3 different levels of Priorities */
 //	  send_hightask();
 
-	  // ****Example of Semaphore****
+	  /* Example of Semaphore */
 	  char *str1 = "Entering HighTask and Waiting for Semaphore\n";
 	  HAL_UART_Transmit(&huart2, (uint8_t *)str1, strlen(str1), HAL_MAX_DELAY);
 
