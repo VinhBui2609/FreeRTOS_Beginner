@@ -46,9 +46,7 @@ extern "C" {
 
 /* Exported macro ------------------------------------------------------------*/
 /* USER CODE BEGIN EM */
-void send_normaltask(void);
-void send_lowtask(void);
-void send_hightask(void);
+void UART_print(char* str, ...);
 /* USER CODE END EM */
 
 /* Exported functions prototypes ---------------------------------------------*/

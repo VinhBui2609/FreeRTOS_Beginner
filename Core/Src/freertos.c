@@ -27,6 +27,7 @@
 /* USER CODE BEGIN Includes */
 #include "usart.h"
 #include <string.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,37 +49,51 @@
 /* USER CODE BEGIN Variables */
 
 /* USER CODE END Variables */
-osThreadId NormalTaskHandle;
-osThreadId LowTaskHandle;
-osThreadId HighTaskHandle;
-osSemaphoreId BinarySemHandle;
+/* Definitions for Tx_Task1 */
+osThreadId_t Tx_Task1Handle;
+const osThreadAttr_t Tx_Task1_attributes = {
+  .name = "Tx_Task1",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for Tx_Task2 */
+osThreadId_t Tx_Task2Handle;
+const osThreadAttr_t Tx_Task2_attributes = {
+  .name = "Tx_Task2",
+  .stack_size = 128 * 4,
+  .priority = (osPriority_t) osPriorityNormal,
+};
+/* Definitions for Rx_Task */
+osThreadId_t Rx_TaskHandle;
+const osThreadAttr_t Rx_Task_attributes = {
+  .name = "Rx_Task",
+  .stack_size = 512 * 4,
+  .priority = (osPriority_t) osPriorityHigh,
+};
+/* Definitions for messageQueue */
+osMessageQueueId_t messageQueueHandle;
+const osMessageQueueAttr_t messageQueue_attributes = {
+  .name = "messageQueue"
+};
+/* Definitions for BinarySem */
+osSemaphoreId_t BinarySemHandle;
+const osSemaphoreAttr_t BinarySem_attributes = {
+  .name = "BinarySem"
+};
 
 /* Private function prototypes -----------------------------------------------*/
 /* USER CODE BEGIN FunctionPrototypes */
-
+typedef struct {
+	uint8_t event_id;		// Identify which Task message belongs to
+	uint32_t timestamp;
+} messageQueue_t;
 /* USER CODE END FunctionPrototypes */
 
-void StartNormalTask(void const * argument);
-void StartLowTask(void const * argument);
-void StartHighTask(void const * argument);
+void Task1_Init(void *argument);
+void Task2_Init(void *argument);
+void Rx_Task_Init(void *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
-
-/* GetIdleTaskMemory prototype (linked to static allocation support) */
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
-
-/* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
-static StaticTask_t xIdleTaskTCBBuffer;
-static StackType_t xIdleStack[configMINIMAL_STACK_SIZE];
-
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize )
-{
-  *ppxIdleTaskTCBBuffer = &xIdleTaskTCBBuffer;
-  *ppxIdleTaskStackBuffer = &xIdleStack[0];
-  *pulIdleTaskStackSize = configMINIMAL_STACK_SIZE;
-  /* place for user code */
-}
-/* USER CODE END GET_IDLE_TASK_MEMORY */
 
 /**
   * @brief  FreeRTOS initialization
@@ -95,9 +110,8 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE END RTOS_MUTEX */
 
   /* Create the semaphores(s) */
-  /* definition and creation of BinarySem */
-  osSemaphoreDef(BinarySem);
-  BinarySemHandle = osSemaphoreCreate(osSemaphore(BinarySem), 1);
+  /* creation of BinarySem */
+  BinarySemHandle = osSemaphoreNew(1, 1, &BinarySem_attributes);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -107,129 +121,142 @@ void MX_FREERTOS_Init(void) {
   /* start timers, add new ones, ... */
   /* USER CODE END RTOS_TIMERS */
 
+  /* Create the queue(s) */
+  /* creation of messageQueue */
+  messageQueueHandle = osMessageQueueNew (10, sizeof(messageQueue_t), &messageQueue_attributes);
+
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
-  /* definition and creation of NormalTask */
-  osThreadDef(NormalTask, StartNormalTask, osPriorityNormal, 0, 128);
-  NormalTaskHandle = osThreadCreate(osThread(NormalTask), NULL);
+  /* creation of Tx_Task1 */
+  Tx_Task1Handle = osThreadNew(Task1_Init, NULL, &Tx_Task1_attributes);
 
-  /* definition and creation of LowTask */
-  osThreadDef(LowTask, StartLowTask, osPriorityLow, 0, 128);
-  LowTaskHandle = osThreadCreate(osThread(LowTask), NULL);
+  /* creation of Tx_Task2 */
+  Tx_Task2Handle = osThreadNew(Task2_Init, NULL, &Tx_Task2_attributes);
 
-  /* definition and creation of HighTask */
-  osThreadDef(HighTask, StartHighTask, osPriorityAboveNormal, 0, 128);
-  HighTaskHandle = osThreadCreate(osThread(HighTask), NULL);
+  /* creation of Rx_Task */
+  Rx_TaskHandle = osThreadNew(Rx_Task_Init, NULL, &Rx_Task_attributes);
 
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
 
+  /* USER CODE BEGIN RTOS_EVENTS */
+  /* add events, ... */
+  /* USER CODE END RTOS_EVENTS */
+
 }
 
-/* USER CODE BEGIN Header_StartNormalTask */
+/* USER CODE BEGIN Header_Task1_Init */
 /**
-  * @brief  Function implementing the NormalTask thread.
+  * @brief  Sending data to Queue whenever the button is pressed
   * @param  argument: Not used
   * @retval None
   */
-/* USER CODE END Header_StartNormalTask */
-void StartNormalTask(void const * argument)
+/* USER CODE END Header_Task1_Init */
+void Task1_Init(void *argument)
 {
-  /* USER CODE BEGIN StartNormalTask */
+  /* USER CODE BEGIN Task1_Init */
   /* Infinite loop */
+
+	messageQueue_t msg;
+
   for(;;)
   {
-	  // ****Example of Creating Tasks with 3 different levels of Priorities****
-//	  send_normaltask();
+	  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8) == GPIO_PIN_RESET)
+	  {
+		  msg.event_id = 0x01;		// Belongs to Task 1
+		  msg.timestamp = HAL_GetTick();
 
-	  // ****Example of Semaphore****
-	  char *str1 = "Entering NormalTask and Waiting for Semaphore\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str1, strlen(str1), HAL_MAX_DELAY);
+		  /** osMessageQueuePut (osMessageQueueId_t mq_id, const void *msg_ptr, uint8_t msg_prio, uint32_t timeout)
+		    * @param:
+		    * mq_id: handler for Queue
+		    * *msg_ptr: &msg: the message to put into Queue
+		    * *msg_prio: 0: all the message has same priority --> FIFO rule
+		    * timeout: 0: no waiting --> only in case ensuring that Queue does not out of space
+		    */
+		  osMessageQueuePut(messageQueueHandle, &msg, 0, 0);
 
-	  osSemaphoreWait(BinarySemHandle, osWaitForever);	// Wait until there is 1 available Semaphore
-
-	  char *str3 = "Semaphore acquired by NormalTask\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str3, strlen(str3), HAL_MAX_DELAY);
-
-	  HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_8);
-	  // Wait unit the button (PA13) is pressed
-	  // Otherwise NormalTaks will not Release Semaphore and other Tasks that requiring Semaphore must be waiting
-
-	  char *str2 = "Leaving NormalTask and Releasing Semaphore\n\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str2, strlen(str2), HAL_MAX_DELAY);
-
-	  osSemaphoreRelease(BinarySemHandle);
-	  osDelay(500);
+		  osDelay(200);		// Prevent button debouncing
+	  }
+	  osDelay(20);
   }
-  /* USER CODE END StartNormalTask */
+  /* USER CODE END Task1_Init */
 }
 
-/* USER CODE BEGIN Header_StartLowTask */
+/* USER CODE BEGIN Header_Task2_Init */
 /**
-* @brief Function implementing the LowTask thread.
+* @brief Sending data to Queue every second
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartLowTask */
-void StartLowTask(void const * argument)
+/* USER CODE END Header_Task2_Init */
+void Task2_Init(void *argument)
 {
-  /* USER CODE BEGIN StartLowTask */
+  /* USER CODE BEGIN Task2_Init */
   /* Infinite loop */
+
+	messageQueue_t msg;
+
   for(;;)
   {
-	  // ****Example of Creating Tasks with 3 different levels of Priorities****
-//	  send_lowtask();
+	  msg.event_id = 0x02;	// Belongs to Task2
+	  msg.timestamp = HAL_GetTick() / 1000;
 
-	  // ****Example of Semaphore****
-	  char *str1 = "Entering LowTask\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str1, strlen(str1), HAL_MAX_DELAY);
+	  /** osMessageQueuePut (osMessageQueueId_t mq_id, const void *msg_ptr, uint8_t msg_prio, uint32_t timeout)
+	    * @param:
+	    * mq_id: handler for Queue
+	    * *msg_ptr: &msg: the message to put into Queue
+	    * *msg_prio: 0: all the message has same priority --> FIFO rule
+	    * timeout: 0: no waiting --> only in case ensuring that Queue does not out of space
+	    */
+	  osMessageQueuePut(messageQueueHandle, &msg, 0, 0);
 
-	  char *str2 = "Leaving LowTask\n\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str2, strlen(str2), HAL_MAX_DELAY);
-	  osDelay(500);
+	  osDelay(1000);
   }
-  /* USER CODE END StartLowTask */
+  /* USER CODE END Task2_Init */
 }
 
-/* USER CODE BEGIN Header_StartHighTask */
+/* USER CODE BEGIN Header_Rx_Task_Init */
 /**
-* @brief Function implementing the HighTask thread.
+* @brief Function implementing the Rx_Task thread.
 * @param argument: Not used
 * @retval None
 */
-/* USER CODE END Header_StartHighTask */
-void StartHighTask(void const * argument)
+/* USER CODE END Header_Rx_Task_Init */
+void Rx_Task_Init(void *argument)
 {
-  /* USER CODE BEGIN StartHighTask */
+  /* USER CODE BEGIN Rx_Task_Init */
   /* Infinite loop */
+
+	messageQueue_t msg;
+
   for(;;)
   {
-	  // ****Example of Creating Tasks with 3 different levels of Priorities****
-//	  send_hightask();
+	  /** osMessageQueueGet (osMessageQueueId_t mq_id, void *msg_ptr, uint8_t *msg_prio, uint32_t timeout)
+	    * @param
+	    * mq_id: handler for Queue
+	    * *msg_ptr: &msg: the message to retrieve from Queue
+	    * *msg_prio: 0: all the message has same priority --> FIFO rule
+	    * timeout: osWaitForever: unlimited waiting --> only print when the read is successful
+	    */
+	  if(osMessageQueueGet(messageQueueHandle, &msg, 0, osWaitForever) == osOK)
+	  {
+		  UART_print("Event ID: %d, Timestamp: %lu\n", msg.event_id, msg.timestamp);
+	  }
 
-	  // ****Example of Semaphore****
-	  char *str1 = "Entering HighTask and Waiting for Semaphore\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str1, strlen(str1), HAL_MAX_DELAY);
-
-	  osSemaphoreWait(BinarySemHandle, osWaitForever);	// Wait until there is 1 available Semaphore
-
-	  char *str3 = "Semaphore acquired by HighTask\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str3, strlen(str3), HAL_MAX_DELAY);
-
-	  char *str2 = "Leaving HighTask and Releasing Semaphore\n\n";
-	  HAL_UART_Transmit(&huart2, (uint8_t *)str2, strlen(str2), HAL_MAX_DELAY);
-
-	  osSemaphoreRelease(BinarySemHandle);
-	  osDelay(500);
+	  osDelay(1);
   }
-  /* USER CODE END StartHighTask */
+  /* USER CODE END Rx_Task_Init */
 }
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-
+void UART_print(char* str, ...)
+{
+	HAL_UART_Transmit(&huart2, (uint8_t*)str, strlen(str), HAL_MAX_DELAY);
+}
 /* USER CODE END Application */
+
